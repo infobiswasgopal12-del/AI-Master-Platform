@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Master Solution</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4 font-sans">
+
+    <!-- Header Navigation -->
+    <header class="flex justify-between items-center bg-gray-800 p-4 rounded-xl mb-6 shadow-lg">
+        <h1 class="text-xl font-bold text-indigo-400">AI Master</h1>
+        <div id="navButtons" class="hidden flex gap-3">
+            <button onclick="showTab('dashboard')" class="text-sm bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">Solve</button>
+            <button onclick="showTab('earnSection')" class="text-sm bg-green-700 px-3 py-1 rounded hover:bg-green-600 font-bold">💰 Earn</button>
+        </div>
+        <div id="userInfo" class="hidden flex items-center gap-4">
+            <span id="timer" class="text-red-400 font-mono text-sm bg-red-900/30 px-3 py-1 rounded-full">00:00:00</span>
+            <button id="logoutBtn" class="text-xs text-gray-400 hover:text-white">Logout</button>
+        </div>
+    </header>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="text-center mt-20">
+        <h2 class="text-2xl font-bold mb-4">Master Problem Solver & Earner</h2>
+        <button id="googleLoginBtn" class="bg-white text-black font-bold py-3 px-6 rounded-xl mx-auto flex items-center gap-2">Continue with Google</button>
+    </div>
+
+    <!-- MAIN AI DASHBOARD -->
+    <div id="dashboard" class="hidden max-w-lg mx-auto tab-content">
+        <div id="inputSection" class="bg-gray-800 p-5 rounded-xl shadow-lg mb-6">
+            <textarea id="problemText" rows="3" placeholder="Apni problem yahan likhein..." class="w-full bg-gray-700 rounded-lg p-3 text-white mb-4 outline-none"></textarea>
+            <div class="flex justify-between items-center">
+                <input type="file" id="fileInput" accept="image/*,video/*" class="text-xs text-gray-400 w-1/2">
+                <button id="analyzeBtn" class="bg-indigo-600 px-5 py-2 rounded-lg font-bold">Analyze</button>
+            </div>
+        </div>
+
+        <!-- 2 Plans Paywall (UPDATED: 14 & 30) -->
+        <div id="paywall" class="hidden bg-yellow-900/20 border border-yellow-600 p-5 rounded-xl text-center mb-6">
+            <h3 class="text-yellow-500 font-bold text-lg mb-4">Problem Analyzed! Choose Plan:</h3>
+            <div class="flex flex-col gap-3">
+                <!-- ₹14 Plan Button -->
+                <button onclick="triggerPayment(14)" class="bg-gray-700 border border-yellow-500 text-white font-bold px-6 py-3 rounded-lg w-full hover:bg-gray-600 flex justify-between px-10">
+                    <span>Quick Fix (1 Hour)</span> <span>₹14</span>
+                </button>
+                <!-- ₹30 Plan Button -->
+                <button onclick="triggerPayment(30)" class="bg-yellow-500 text-black font-bold px-6 py-3 rounded-lg w-full hover:bg-yellow-400 flex justify-between px-10">
+                    <span>Master Access (24 Hrs)</span> <span>₹30</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="chatSection" class="hidden bg-gray-800 p-4 rounded-xl h-96 overflow-y-auto flex flex-col gap-3"></div>
+        <div id="followUpSection" class="hidden flex gap-2 mt-4">
+            <input type="text" id="followUpText" placeholder="Aur kuch poochna hai?" class="flex-1 bg-gray-700 rounded-lg p-3 outline-none">
+            <button id="sendBtn" class="bg-indigo-600 px-4 rounded-lg font-bold">Send</button>
+        </div>
+    </div>
+
+    <!-- REFER & EARN DASHBOARD -->
+    <div id="earnSection" class="hidden max-w-lg mx-auto tab-content">
+        <div class="bg-gradient-to-br from-green-900 to-gray-800 p-6 rounded-xl shadow-lg border border-green-700">
+            <h2 class="text-xl font-bold text-green-400 mb-2">🎯 Refer & Earn Master Program</h2>
+            <p class="text-sm text-gray-300 mb-4">Invite friends. Earn ₹5 per sale. Get 10 sales today & earn ₹7 per sale!</p>
+            
+            <div class="bg-gray-900 p-4 rounded-lg mb-4 text-center">
+                <p class="text-xs text-gray-400">Your Wallet Balance</p>
+                <p class="text-3xl font-bold text-white">₹<span id="walletBalance">0</span></p>
+            </div>
+
+            <div class="mb-4">
+                <p class="text-xs text-gray-400 mb-1">Today's Target (10 invites for ₹7 bonus)</p>
+                <div class="w-full bg-gray-700 rounded-full h-2.5">
+                    <div id="targetBar" class="bg-green-500 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-right text-green-400 mt-1"><span id="todayCount">0</span> / 10 Sales</p>
+            </div>
+
+            <div class="bg-gray-900 p-3 rounded-lg flex items-center justify-between mb-6">
+                <input type="text" id="refLink" readonly class="bg-transparent text-sm text-gray-300 w-3/4 outline-none">
+                <button onclick="copyLink()" class="text-green-400 text-sm font-bold">COPY</button>
+            </div>
+
+            <div class="border-t border-gray-700 pt-4">
+                <h3 class="text-sm font-bold mb-2">Withdraw to UPI (Min ₹50)</h3>
+                <input type="text" id="upiId" placeholder="Enter UPI ID (e.g., name@okbank)" class="w-full bg-gray-900 rounded-lg p-3 text-white mb-2 outline-none border border-gray-700">
+                <button onclick="requestWithdrawal()" class="bg-green-600 w-full py-3 rounded-lg font-bold hover:bg-green-500">Withdraw Cash</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "YOUR_KEY", projectId: "YOUR_PROJECT" }; 
+        if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const refParam = urlParams.get('ref');
+        if (refParam) localStorage.setItem('referredBy', refParam);
+
+        let user = null, fileBase64 = null, timerInterval;
+
+        auth.onAuthStateChanged(async u => {
+            if(u) { 
+                user = u; 
+                document.getElementById('loginScreen').classList.add('hidden'); 
+                document.getElementById('dashboard').classList.remove('hidden'); 
+                document.getElementById('navButtons').classList.remove('hidden');
+                document.getElementById('userInfo').classList.remove('hidden'); 
+                
+                document.getElementById('refLink').value = window.location.origin + "?ref=" + user.uid;
+
+                const userRef = db.collection('users').doc(user.uid);
+                const userDoc = await userRef.get();
+                if (!userDoc.exists) {
+                    await userRef.set({ 
+                        uid: user.uid, 
+                        wallet: 0, 
+                        dailyCount: 0, 
+                        lastRefDate: new Date().toISOString().split('T')[0],
+                        referredBy: localStorage.getItem('referredBy') || null
+                    });
+                }
+                
+                userRef.onSnapshot(doc => {
+                    const data = doc.data();
+                    document.getElementById('walletBalance').innerText = data.wallet || 0;
+                    const count = data.dailyCount || 0;
+                    document.getElementById('todayCount').innerText = count;
+                    document.getElementById('targetBar').style.width = Math.min((count / 10) * 100, 100) + '%';
+                });
+
+                checkSessionStatus();
+            } else { 
+                document.getElementById('loginScreen').classList.remove('hidden'); 
+            }
+        });
+
+        document.getElementById('googleLoginBtn').onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        document.getElementById('logoutBtn').onclick = () => auth.signOut();
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+        }
+
+        function copyLink() {
+            const link = document.getElementById('refLink');
+            link.select(); document.execCommand('copy');
+            alert("Referral Link Copied!");
+        }
+
+        document.getElementById('fileInput').onchange = (e) => {
+            const reader = new FileReader();
+            reader.onload = () => fileBase64 = reader.result;
+            reader.readAsDataURL(e.target.files[0]);
+        };
+
+        async function checkSessionStatus() {
+            db.collection('sessions').doc(user.uid).onSnapshot(doc => {
+                if(doc.exists && doc.data().status === 'active') {
+                    const expiry = doc.data().expiresAt;
+                    if(expiry > Date.now()) {
+                        document.getElementById('inputSection').classList.add('hidden');
+                        document.getElementById('paywall').classList.add('hidden');
+                        document.getElementById('chatSection').classList.remove('hidden');
+                        document.getElementById('followUpSection').classList.remove('hidden');
+                        renderChat(doc.data().chat || []);
+                        startTimer(expiry);
+                    }
+                }
+            });
+        }
+
+        document.getElementById('analyzeBtn').onclick = async () => {
+            const text = document.getElementById('problemText').value;
+            await db.collection('sessions').doc(user.uid).set({ uid: user.uid, status: 'pending', tempText: text, tempImg: fileBase64 });
+            document.getElementById('paywall').classList.remove('hidden');
+        };
+
+        function triggerPayment(amount) {
+            const options = {
+                key: "YOUR_RAZORPAY_KEY", 
+                amount: amount * 100, 
+                currency: "INR", 
+                name: "AI Master Plan",
+                handler: async function (res) {
+                    await fetch('/api/verify-payment', { 
+                        method: 'POST', 
+                        body: JSON.stringify({ uid: user.uid, pay_id: res.razorpay_payment_id, planAmount: amount }) 
+                    });
+                }
+            };
+            new Razorpay(options).open();
+        }
+
+        async function requestWithdrawal() {
+            const upi = document.getElementById('upiId').value;
+            if(!upi.includes('@')) return alert("Valid UPI ID enter karein");
+            
+            const res = await fetch('/api/withdraw', { method: 'POST', body: JSON.stringify({ uid: user.uid, upi: upi }) });
+            const result = await res.text();
+            alert(result);
+        }
+
+        document.getElementById('sendBtn').onclick = async () => {
+            const text = document.getElementById('followUpText').value;
+            document.getElementById('followUpText').value = '';
+            await fetch('/api/solve', { method: 'POST', body: JSON.stringify({ uid: user.uid, text: text }) });
+        };
+
+        function renderChat(chat) {
+            const box = document.getElementById('chatSection');
+            box.innerHTML = '';
+            chat.forEach(m => { box.innerHTML += `<div class="p-3 rounded-lg text-sm ${m.role === 'user' ? 'bg-indigo-900 ml-auto' : 'bg-gray-700'}">${m.text}</div>`; });
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function startTimer(exp) {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const diff = exp - Date.now();
+                if(diff <= 0) return clearInterval(timerInterval);
+                timerEl.innerText = new Date(diff).toISOString().substr(11, 8);
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
